@@ -26,7 +26,7 @@ def get_config():
     parser.add_argument('--data_format', type = str, default = "DEFAULT", help='data format')
     parser.add_argument('--task', type = int, default = 0, help='task id')
     parser.add_argument('-log_dir', type = str, default = "", help='debug log dir in cosmos')
-    
+
     parser.add_argument('--T', type = int, default = 32, help="thread number")
     parser.add_argument('--train_samples', type = int, default = 1000000, help='OPQ, PQ training samples')
     parser.add_argument('--quan_type', type = str, default = 'none', help='quantizer type')
@@ -36,8 +36,7 @@ def get_config():
     parser.add_argument('--output_quan_vector_file', type = str, default = "", help='quantized vectors')
     parser.add_argument('--output_rec_vector_file', type = str, default = "", help = "reconstruct vectors")
     parser.add_argument('--quan_test', type = int, default = 0, help='compare with ground truth')
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 class DataReader:
     def __init__(self, filename, featuredim, batchsize, normalize, datatype, targettype='float32'):
@@ -94,8 +93,9 @@ class DataReader:
                  for j in range(self.featuredim): self.query[i, j] = float(items[j])
                  i += 1
         print ('Load batch query size:%r' % (i))
-        if self.normalize != 0: return i, self.norm(self.query[0:i])
-        return i, self.query[0:i]
+        if self.normalize != 0:
+            return i, self.norm(self.query[:i])
+        return i, self.query[:i]
             
     def readallbatches(self):
         numQuerys = self.query.shape[0]
@@ -108,7 +108,7 @@ class DataReader:
                 R += i
             else:
                 if i > 0:
-                    data.append(copy.deepcopy(q[0:i]))
+                    data.append(copy.deepcopy(q[:i]))
                     R += i
                 break
         return R, data
@@ -122,7 +122,7 @@ def gpusearch(args):
     print ('number of GPUs:', ngpus)
 
     gpu_resources = []
-    for i in range(ngpus):
+    for _ in range(ngpus):
         res = faiss.StandardGpuResources()
         gpu_resources.append(res)
 
@@ -144,7 +144,7 @@ def gpusearch(args):
 
         co = faiss.GpuMultipleClonerOptions()
         co.shard = True
-        co.useFloat16 = False if args.target_type == 'float32' else True
+        co.useFloat16 = args.target_type != 'float32'
         co.useFloat16CoarseQuantizer = False
         if args.D != 'Cosine':
             cpu_index = faiss.IndexFlatL2(args.dim)
@@ -154,56 +154,50 @@ def gpusearch(args):
         gpu_index = faiss.index_cpu_to_all_gpus(cpu_index, co, ngpu=ngpus)
         gpu_index.add(data)
 
-        fout = open('truth.txt.%d' % batch, 'w')
-        foutd = open('dist.bin.%d' % batch, 'wb')
- 
-        foutd.write(pack('i', RQ))
-        foutd.write(pack('i', args.k))
+        with open('truth.txt.%d' % batch, 'w') as fout:
+            foutd = open('dist.bin.%d' % batch, 'wb')
 
-        for query in dataQ:
-            D, I = gpu_index.search(query, args.k)
-            foutd.write(D.tobytes())
-            for i in range(I.shape[0]):
-                for j in range(I.shape[1]):
-                    fout.write(str(I[i][j]) + " ")
-                fout.write('\n')
+            foutd.write(pack('i', RQ))
+            foutd.write(pack('i', args.k))
 
-        fout.close()
+            for query in dataQ:
+                D, I = gpu_index.search(query, args.k)
+                foutd.write(D.tobytes())
+                for i in range(I.shape[0]):
+                    for j in range(I.shape[1]):
+                        fout.write(f"{str(I[i][j])} ")
+                    fout.write('\n')
+
         foutd.close()
-    
+
     if args.B <= 0 or args.B >= totaldata: args.B = totaldata
 
-    truth = [[] for j in range(RQ)]
+    truth = [[] for _ in range(RQ)]
     for i in range(1, batch + 1):
-        f = open('truth.txt.%d' % i, 'r')
-        fd = open('dist.bin.%d' % i, 'rb')
-        r = unpack('i', fd.read(4))[0]
-        c = unpack('i', fd.read(4))[0]
-        print ('batch %d: r:%d c:%d RQ:%d k:%d' % (i, r, c, RQ, args.k))
-        currdist = np.frombuffer(fd.read(4 * RQ * args.k), dtype=np.float32).reshape((RQ, args.k))
-        fd.close()
+        with open('truth.txt.%d' % i, 'r') as f:
+            with open('dist.bin.%d' % i, 'rb') as fd:
+                r = unpack('i', fd.read(4))[0]
+                c = unpack('i', fd.read(4))[0]
+                print ('batch %d: r:%d c:%d RQ:%d k:%d' % (i, r, c, RQ, args.k))
+                currdist = np.frombuffer(fd.read(4 * RQ * args.k), dtype=np.float32).reshape((RQ, args.k))
+            for j in range(RQ):
+                items = f.readline()[:-1].split()
+                truth[j].extend([(int(items[k]) + args.B * (i-1), currdist[j][k]) for k in range(args.k)])
+                truth[j].sort(key=itemgetter(1, 0))
+                truth[j] = truth[j][:args.k]
+    if not os.path.exists(f'{args.output_truth}.dist'):
+        os.mkdir(f'{args.output_truth}.dist')
 
-        for j in range(RQ):
-            items = f.readline()[0:-1].split()
-            truth[j].extend([(int(items[k]) + args.B * (i-1), currdist[j][k]) for k in range(args.k)])
-            truth[j].sort(key=itemgetter(1, 0))
-            truth[j] = truth[j][0:args.k]
-        f.close()
-
-    if not os.path.exists(args.output_truth + '.dist'):
-        os.mkdir(args.output_truth + '.dist')
-
-    fout = open(args.output_truth, 'w')
-    foutd = open(args.output_truth + '.dist\\dist.bin.' + str(args.task), 'wb')
-    foutd.write(pack('i', RQ))
-    foutd.write(pack('i', args.k))
-    for i in range(RQ):
-        for j in range(args.k):
-            fout.write(str(truth[i][j][0]) + " ")
-            foutd.write(pack('i', truth[i][j][0]))
-            foutd.write(pack('f', truth[i][j][1]))
-        fout.write('\n')
-    fout.close()
+    with open(args.output_truth, 'w') as fout:
+        foutd = open(args.output_truth + '.dist\\dist.bin.' + str(args.task), 'wb')
+        foutd.write(pack('i', RQ))
+        foutd.write(pack('i', args.k))
+        for i in range(RQ):
+            for j in range(args.k):
+                fout.write(f"{str(truth[i][j][0])} ")
+                foutd.write(pack('i', truth[i][j][0]))
+                foutd.write(pack('f', truth[i][j][1]))
+            fout.write('\n')
     foutd.close()
 
 def train_pq(args):

@@ -24,7 +24,7 @@ def get_filenames(glob_pattern, recursive=True):
         List of file paths
     """
     all_files = glob.glob(glob_pattern, recursive=recursive)
-    print('Found %s files using pattern: %s' % (len(all_files), glob_pattern))
+    print(f'Found {len(all_files)} files using pattern: {glob_pattern}')
     return all_files
 
 
@@ -102,15 +102,13 @@ def create_feat_extractor(base_model, pooling_method='avg'):
         Ready to use feature extractor
     """
     assert pooling_method in ['avg', 'max']
-    
+
     x = base_model.output
     if pooling_method=='avg':
         x = GlobalAveragePooling2D()(x)
     elif pooling_method=='max':
         x = GlobalMaxPooling2D()(x)
-    model = Model(input=base_model.input, output=[x])
-
-    return model
+    return Model(input=base_model.input, output=[x])
 
 
 def extract_features(imgs_np, pretrained_model="resnet50", pooling_method='avg'):    

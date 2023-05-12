@@ -22,6 +22,7 @@ Where "1.0" is version string and "win_amd64" is platform.
 The platform may also be "manylinux1_x86_64".
 """
 
+
 from distutils.cmd import Command
 from distutils.command.build import build
 from distutils.command.clean import clean
@@ -36,11 +37,11 @@ from setuptools.command.develop import develop
 release = os.environ.get('SPTAG_RELEASE')
 nuget_release = os.environ.get('NUGET_RELEASE')
 python_version = "%d.%d" % (sys.version_info.major, sys.version_info.minor)
-print ("Python version:%s" % python_version)
+print(f"Python version:{python_version}")
 
-if 'bdist_wheel' in sys.argv:
-  if not any(arg.startswith('--python-tag') for arg in sys.argv):
-      sys.argv.extend(['--python-tag', 'py%d%d'%(sys.version_info.major, sys.version_info.minor)])
+if 'bdist_wheel' in sys.argv and not any(
+    arg.startswith('--python-tag') for arg in sys.argv):
+  sys.argv.extend(['--python-tag', 'py%d%d'%(sys.version_info.major, sys.version_info.minor)])
 print (sys.argv)
 
 def _setup():
@@ -75,29 +76,29 @@ def _setup():
     )
 
 def _find_python_packages():
-    if os.path.exists('sptag'): shutil.rmtree('sptag')
+  if os.path.exists('sptag'): shutil.rmtree('sptag')
 
-    if os.path.exists('Release'):
-        shutil.copytree('Release', 'sptag')
-    elif os.path.exists(os.path.join('x64', 'Release')):
-        shutil.copytree(os.path.join('x64', 'Release'), 'sptag')
+  if os.path.exists('Release'):
+    shutil.copytree('Release', 'sptag')
+  elif os.path.exists(os.path.join('x64', 'Release')):
+    shutil.copytree(os.path.join('x64', 'Release'), 'sptag')
 
-        if os.path.exists('lib'): shutil.rmtree('lib')
-        os.mkdir('lib')
-        for file in glob.glob(r'x64\\Release\\Microsoft.ANN.SPTAGManaged.*'):
-            print (file)
-            shutil.copy(file, "lib\\")
-        shutil.copy('x64\\Release\\libzstd.dll', "lib\\")
-        shutil.copy('x64\\Release\\Ijwhost.dll', "lib\\")
-        sfiles = ''
-        for framework in ['net5.0']:
-            sfiles += '<file src="lib\\Microsoft.ANN.SPTAGManaged.dll" target="lib\\%s\\Microsoft.ANN.SPTAGManaged.dll" />' % framework
-            sfiles += '<file src="lib\\Microsoft.ANN.SPTAGManaged.pdb" target="lib\\%s\\Microsoft.ANN.SPTAGManaged.pdb" />' % framework
-            sfiles += '<file src="lib\\libzstd.dll" target="lib\\%s\\libzstd.dll" />' % framework
-            sfiles += '<file src="lib\\Ijwhost.dll" target="lib\\%s\\Ijwhost.dll" />' % framework
+    if os.path.exists('lib'): shutil.rmtree('lib')
+    os.mkdir('lib')
+    for file in glob.glob(r'x64\\Release\\Microsoft.ANN.SPTAGManaged.*'):
+        print (file)
+        shutil.copy(file, "lib\\")
+    shutil.copy('x64\\Release\\libzstd.dll', "lib\\")
+    shutil.copy('x64\\Release\\Ijwhost.dll', "lib\\")
+    sfiles = ''
+    for framework in ['net5.0']:
+        sfiles += '<file src="lib\\Microsoft.ANN.SPTAGManaged.dll" target="lib\\%s\\Microsoft.ANN.SPTAGManaged.dll" />' % framework
+        sfiles += '<file src="lib\\Microsoft.ANN.SPTAGManaged.pdb" target="lib\\%s\\Microsoft.ANN.SPTAGManaged.pdb" />' % framework
+        sfiles += '<file src="lib\\libzstd.dll" target="lib\\%s\\libzstd.dll" />' % framework
+        sfiles += '<file src="lib\\Ijwhost.dll" target="lib\\%s\\Ijwhost.dll" />' % framework
 
-        f = open('sptag.nuspec', 'w')
-        spec = '''<?xml version="1.0" encoding="utf-8"?>
+    with open('sptag.nuspec', 'w') as f:
+      spec = '''<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
   <metadata>
     <id>MSSPTAG.Managed.Library</id>
@@ -116,11 +117,9 @@ def _find_python_packages():
   </files>
 </package>
 ''' % (nuget_release, sfiles)
-        f.write(spec)
-        f.close()
-
-        fwinrt = open('sptag.winrt.nuspec', 'w')
-        spec = '''<?xml version="1.0" encoding="utf-8"?>
+      f.write(spec)
+    with open('sptag.winrt.nuspec', 'w') as fwinrt:
+      spec = '''<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
   <metadata>
     <id>MSSPTAG.WinRT</id>
@@ -151,12 +150,10 @@ def _find_python_packages():
   </files>
 </package>
 ''' % (nuget_release)
-        fwinrt.write(spec)
-        fwinrt.close()
-
-    f = open(os.path.join('sptag', '__init__.py'), 'w')
-    f.close()
-    return ['sptag']
+      fwinrt.write(spec)
+  f = open(os.path.join('sptag', '__init__.py'), 'w')
+  f.close()
+  return ['sptag']
 
 class Build(build):
     def run(self):

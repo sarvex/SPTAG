@@ -85,13 +85,10 @@ class Sptag:
     def __str__(self):
         s = ''
         if self._para:
-            s += ", " + ", ".join(
-                [k + "=" + str(v) for k, v in self._para.items()])
+            s += (", " + ", ".join([f"{k}={str(v)}" for k, v in self._para.items()]))
         if self.s_para:
-            s += ", " + ", ".join(
-                [k + "_s" + "=" + str(v) for k, v in self.s_para.items()])
-        return 'Sptag(metric=%s, algo=%s' % (self._metric,
-                                             self._algo) + s + ')'
+            s += (", " + ", ".join([f"{k}_s={str(v)}" for k, v in self.s_para.items()]))
+        return f'Sptag(metric={self._metric}, algo={self._algo}{s})'
 
 
 class BruteForceBLAS:
@@ -99,8 +96,7 @@ class BruteForceBLAS:
 
     def __init__(self, metric, precision=numpy.float32):
         if metric not in ('angular', 'euclidean', 'hamming', 'jaccard'):
-            raise NotImplementedError(
-                "BruteForceBLAS doesn't support metric %s" % metric)
+            raise NotImplementedError(f"BruteForceBLAS doesn't support metric {metric}")
         elif metric == 'hamming' and precision != numpy.bool:
             raise NotImplementedError(
                 "BruteForceBLAS doesn't support precision"

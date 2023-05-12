@@ -29,10 +29,7 @@ def get_recall_from_distance(dataset_distances,
     recalls = np.zeros(len(run_distances))
     for i in range(len(run_distances)):
         t = knn_threshold(dataset_distances[i], k, epsilon)
-        actual = 0
-        for d in run_distances[i][:k]:
-            if d <= t:
-                actual += 1
+        actual = sum(1 for d in run_distances[i][:k] if d <= t)
         recalls[i] = actual
 
     return (np.mean(recalls) / float(k), np.std(recalls) / float(k), recalls)
@@ -41,11 +38,7 @@ def get_recall_from_distance(dataset_distances,
 def get_recall_from_index(dataset_index, run_index, k):
     recalls = np.zeros(len(run_index))
     for i in range(len(run_index)):
-        actual = 0
-        for d in run_index[i][:k]:
-            # need to conver to string because default loaded label are strings
-            if str(d) in dataset_index[i][:k]:
-                actual += 1
+        actual = sum(1 for d in run_index[i][:k] if str(d) in dataset_index[i][:k])
         recalls[i] = actual
 
     return (np.mean(recalls) / float(k), np.std(recalls) / float(k), recalls)
@@ -68,7 +61,7 @@ def compute_metrics(groundtruth, attrs, results, k, from_index=False):
 def grid_search(params):
     param_num = len(params)
     params = list(params.items())
-    max_param_choices = max([len(p[1]) for p in params])
+    max_param_choices = max(len(p[1]) for p in params)
     temp = []
     for i in range(max_param_choices):
         temp += [i for _ in range(param_num)]
@@ -170,9 +163,7 @@ def main():
             label = []
             # we assume the groundtruth index are split by space
             with open(args.label_file, 'r') as f:
-                for line in f:
-                    label.append(line.strip().split())
-
+                label.extend(line.strip().split() for line in f)
     print('got a train set of size (%d * %d)' % (X_train.shape[0], dimension))
     print('got %d queries' % len(X_test))
 
@@ -276,11 +267,7 @@ def main():
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
         trial_id = nni.get_trial_id()
-        with open(
-                os.path.join(
-                    result_dir,
-                    "result_" + str(trial_id) + ' ' + str(i) + ".json"),
-                "w") as f:
+        with open(os.path.join(result_dir, f"result_{str(trial_id)} {str(i)}.json"), "w") as f:
             json.dump(res, f)
 
     nni.report_final_result(best_res)

@@ -78,8 +78,9 @@ class DataReader:
                     self.query[i, j] = float(items[j])
                 i += 1
         print('Load batch query size:%r' % (i))
-        if self.normalize != 0: return i, self.norm(self.query[0:i])
-        return i, self.query[0:i]
+        if self.normalize != 0:
+            return i, self.norm(self.query[:i])
+        return i, self.query[:i]
 
     def readallbatches(self):
         numQuerys = self.query.shape[0]
@@ -92,7 +93,7 @@ class DataReader:
                 R += i
             else:
                 if i > 0:
-                    data.append(copy.deepcopy(q[0:i]))
+                    data.append(copy.deepcopy(q[:i]))
                     R += i
                 break
         return R, np.array(data)

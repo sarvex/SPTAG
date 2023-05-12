@@ -90,8 +90,8 @@ def main():
         prefix = args.train_file.replace(".bin", "")
         target_path = os.path.join(
             args.output_dir,
-            os.path.splitext(os.path.split(prefix)[1])[0] + '-sampled-' +
-            str(args.num_sample) + '.txt')
+            f'{os.path.splitext(os.path.split(prefix)[1])[0]}-sampled-{str(args.num_sample)}.txt',
+        )
         with open(target_path, 'w') as f:
             for i in range(len(X_train)):
                 f.write('\t')

@@ -33,7 +33,7 @@ def create_plot(path, x_scale, y_scale, results):
     last_x = -1
     comparator = ((lambda xv, lx: xv > lx) if last_x < 0 else
                   (lambda xv, lx: xv < lx))
-    with open(path + '.json', 'w') as f:
+    with open(f'{path}.json', 'w') as f:
         for i, (q, r, b, bp, sp) in enumerate(data):
             if comparator(r, last_x):
                 last_x = r
@@ -42,10 +42,12 @@ def create_plot(path, x_scale, y_scale, results):
                 print("Selected point", i, "recalls:", r, "qps:", q,
                       "build time:", b, "with build params:", bp,
                       "and search params:", sp)
-                f.write("Selected point" + str(i) + "recalls:" + str(r) +
-                        "qps:" + str(q) + "build time:" + str(b) +
-                        "with build params:" + str(bp) + "and search params:" +
-                        str(sp) + "\n")
+                f.write(
+                    (
+                        f"Selected point{str(i)}recalls:{str(r)}qps:{str(q)}build time:{str(b)}with build params:{str(bp)}and search params:{str(sp)}"
+                        + "\n"
+                    )
+                )
 
     handles, labels = [], []
     handle, = plt.plot(recalls,
@@ -94,7 +96,7 @@ def create_plot(path, x_scale, y_scale, results):
 
     ax.spines['bottom']._adjust_location()
 
-    plt.savefig(path + '.png', bbox_inches='tight')
+    plt.savefig(f'{path}.png', bbox_inches='tight')
     plt.close()
 
 
